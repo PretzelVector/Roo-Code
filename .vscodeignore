@@ -57,3 +57,7 @@ webview-ui/node_modules/**
 
 # Include .env file for telemetry
 !.env
+
+# direnv
+.envrc
+.direnv
