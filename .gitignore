@@ -6,6 +6,8 @@ node_modules
 coverage/
 mock/
 
+.direnv/
+
 .DS_Store
 
 # IDEs
