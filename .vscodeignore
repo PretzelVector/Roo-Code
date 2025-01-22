@@ -68,3 +68,7 @@ assets/docs/**
 
 # Include .env file for telemetry
 !.env
+
+# direnv
+.envrc
+.direnv
