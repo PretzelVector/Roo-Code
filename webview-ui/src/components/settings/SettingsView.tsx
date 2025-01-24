@@ -430,6 +430,15 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 				<div className="flex items-center gap-1">
 					<h3 className="text-vscode-foreground m-0">{t("settings:header.title")}</h3>
 				</div>
+				<span
+					style={{
+						fontSize: "10px",
+						fontStyle: "italic",
+						color: "var(--vscode-icon-foreground)",
+						marginTop: "5px",
+					}}>
+					Pretzeled&nbsp;Build&nbsp;[v{extensionState.version}]
+				</span>
 				<div className="flex gap-2">
 					<Button
 						variant={isSettingValid ? "default" : "secondary"}
