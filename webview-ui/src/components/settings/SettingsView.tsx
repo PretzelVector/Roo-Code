@@ -347,6 +347,15 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</div>
+				<span
+					style={{
+						fontSize: "10px",
+						fontStyle: "italic",
+						color: "var(--vscode-icon-foreground)",
+						marginTop: "5px",
+					}}>
+					Pretzeled&nbsp;Build&nbsp;[v{extensionState.version}]
+				</span>
 				<div className="flex gap-2">
 					<Button
 						variant={isSettingValid ? "default" : "secondary"}
