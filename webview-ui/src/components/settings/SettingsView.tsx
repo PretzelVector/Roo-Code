@@ -60,6 +60,7 @@ import {
 } from "@src/components/ui"
 
 import { Tab, TabContent, TabHeader, TabList, TabTrigger } from "../common/Tab"
+import VersionIndicator from "../common/VersionIndicator"
 import { SetCachedStateField, SetExperimentEnabled } from "./types"
 import { SectionHeader } from "./SectionHeader"
 import ApiConfigManager from "./ApiConfigManager"
@@ -573,6 +574,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 				<div className="flex items-center gap-1">
 					<h3 className="text-vscode-foreground m-0">{t("settings:header.title")}</h3>
 				</div>
+				<VersionIndicator onClick={() => {}} className="mt-1" />
 				<div className="flex gap-2">
 					<StandardTooltip
 						content={
