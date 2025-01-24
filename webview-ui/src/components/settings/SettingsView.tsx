@@ -187,6 +187,15 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 					paddingRight: 17,
 				}}>
 				<h3 style={{ color: "var(--vscode-foreground)", margin: 0 }}>Settings</h3>
+				<span
+					style={{
+						fontSize: "10px",
+						fontStyle: "italic",
+						color: "var(--vscode-icon-foreground)",
+						marginTop: "5px",
+					}}>
+					Pretzeled&nbsp;Build
+				</span>
 				<VSCodeButton onClick={handleSubmit}>Done</VSCodeButton>
 			</div>
 			<div
