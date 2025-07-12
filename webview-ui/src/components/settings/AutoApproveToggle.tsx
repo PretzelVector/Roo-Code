@@ -43,19 +43,33 @@ export const autoApproveSettingsConfig: Record<AutoApproveSetting, AutoApproveCo
 		icon: "edit",
 		testId: "always-allow-write-toggle",
 	},
+	alwaysAllowSubtasks: {
+		key: "alwaysAllowSubtasks",
+		labelKey: "settings:autoApprove.subtasks.label",
+		descriptionKey: "settings:autoApprove.subtasks.description",
+		icon: "list-tree",
+		testId: "always-allow-subtasks-toggle",
+	},
+	alwaysAllowUpdateTodoList: {
+		key: "alwaysAllowUpdateTodoList",
+		labelKey: "settings:autoApprove.updateTodoList.label",
+		descriptionKey: "settings:autoApprove.updateTodoList.description",
+		icon: "checklist",
+		testId: "always-allow-update-todo-list-toggle",
+	},
+	alwaysAllowExecute: {
+		key: "alwaysAllowExecute",
+		labelKey: "settings:autoApprove.execute.label",
+		descriptionKey: "settings:autoApprove.execute.description",
+		icon: "terminal",
+		testId: "always-allow-execute-toggle",
+	},
 	alwaysAllowBrowser: {
 		key: "alwaysAllowBrowser",
 		labelKey: "settings:autoApprove.browser.label",
 		descriptionKey: "settings:autoApprove.browser.description",
 		icon: "globe",
 		testId: "always-allow-browser-toggle",
-	},
-	alwaysApproveResubmit: {
-		key: "alwaysApproveResubmit",
-		labelKey: "settings:autoApprove.retry.label",
-		descriptionKey: "settings:autoApprove.retry.description",
-		icon: "refresh",
-		testId: "always-approve-resubmit-toggle",
 	},
 	alwaysAllowMcp: {
 		key: "alwaysAllowMcp",
@@ -71,20 +85,6 @@ export const autoApproveSettingsConfig: Record<AutoApproveSetting, AutoApproveCo
 		icon: "sync",
 		testId: "always-allow-mode-switch-toggle",
 	},
-	alwaysAllowSubtasks: {
-		key: "alwaysAllowSubtasks",
-		labelKey: "settings:autoApprove.subtasks.label",
-		descriptionKey: "settings:autoApprove.subtasks.description",
-		icon: "list-tree",
-		testId: "always-allow-subtasks-toggle",
-	},
-	alwaysAllowExecute: {
-		key: "alwaysAllowExecute",
-		labelKey: "settings:autoApprove.execute.label",
-		descriptionKey: "settings:autoApprove.execute.description",
-		icon: "terminal",
-		testId: "always-allow-execute-toggle",
-	},
 	alwaysAllowFollowupQuestions: {
 		key: "alwaysAllowFollowupQuestions",
 		labelKey: "settings:autoApprove.followupQuestions.label",
@@ -92,24 +92,29 @@ export const autoApproveSettingsConfig: Record<AutoApproveSetting, AutoApproveCo
 		icon: "question",
 		testId: "always-allow-followup-questions-toggle",
 	},
-	alwaysAllowUpdateTodoList: {
-		key: "alwaysAllowUpdateTodoList",
-		labelKey: "settings:autoApprove.updateTodoList.label",
-		descriptionKey: "settings:autoApprove.updateTodoList.description",
-		icon: "checklist",
-		testId: "always-allow-update-todo-list-toggle",
+	alwaysApproveResubmit: {
+		key: "alwaysApproveResubmit",
+		labelKey: "settings:autoApprove.retry.label",
+		descriptionKey: "settings:autoApprove.retry.description",
+		icon: "refresh",
+		testId: "always-approve-resubmit-toggle",
 	},
 }
 
 type AutoApproveToggleProps = AutoApproveToggles & {
 	onToggle: (key: AutoApproveSetting, value: boolean) => void
+	minimal?: boolean
 }
 
-export const AutoApproveToggle = ({ onToggle, ...props }: AutoApproveToggleProps) => {
+export const AutoApproveToggle = ({ onToggle, minimal = false, ...props }: AutoApproveToggleProps) => {
 	const { t } = useAppTranslation()
 
 	return (
-		<div className={cn("flex flex-row flex-wrap gap-2 py-2")}>
+		<div
+			className={cn(
+				"flex flex-row flex-wrap justify-center gap-2 mx-auto my-2",
+				!minimal && "grid grid-cols-3 md:grid-cols-5",
+			)}>
 			{Object.values(autoApproveSettingsConfig).map(({ key, descriptionKey, labelKey, icon, testId }) => (
 				<StandardTooltip key={key} content={t(descriptionKey || "")}>
 					<Button
@@ -118,9 +123,16 @@ export const AutoApproveToggle = ({ onToggle, ...props }: AutoApproveToggleProps
 						aria-label={t(labelKey)}
 						aria-pressed={!!props[key]}
 						data-testid={testId}
-						className={cn("gap-1.5 text-xs whitespace-nowrap", !props[key] && "opacity-50")}>
-						<span className={`codicon codicon-${icon} text-sm`} />
-						<span>{t(labelKey)}</span>
+						className={cn(
+							"aspect-square",
+							!props[key] && "opacity-50",
+							minimal && "h-[40px] px-1",
+							!minimal && "h-[80]",
+						)}>
+						<span className={cn("flex flex-row items-center gap-1")}>
+							<span className={`codicon codicon-${icon}`} />
+							{!minimal && <span className="text-sm text-center">{t(labelKey)}</span>}
+						</span>
 					</Button>
 				</StandardTooltip>
 			))}

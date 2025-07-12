@@ -1,5 +1,15 @@
 import React from "react"
-import { ListChecks, LayoutList, Settings, CheckCheck, X } from "lucide-react"
+import {
+	LayoutList,
+	Settings,
+	X,
+	ListTodo,
+	Globe,
+	Server,
+	MessageSquareCode,
+	BookOpenText,
+	FileDiff,
+} from "lucide-react"
 
 import { vscode } from "@/utils/vscode"
 
@@ -91,12 +101,6 @@ export const AutoApproveDropdown = ({ disabled = false, triggerClassName = "" }:
 					setAlwaysAllowUpdateTodoList(value)
 					break
 			}
-
-			// If enabling any option, ensure autoApprovalEnabled is true.
-			if (value && !autoApprovalEnabled) {
-				setAutoApprovalEnabled(true)
-				vscode.postMessage({ type: "autoApprovalEnabled", bool: true })
-			}
 		},
 		[
 			autoApprovalEnabled,
@@ -114,24 +118,156 @@ export const AutoApproveDropdown = ({ disabled = false, triggerClassName = "" }:
 		],
 	)
 
-	const handleSelectAll = React.useCallback(() => {
-		// Enable all options
-		Object.keys(autoApproveSettingsConfig).forEach((key) => {
-			onAutoApproveToggle(key as AutoApproveSetting, true)
-		})
-		// Enable master auto-approval
-		if (!autoApprovalEnabled) {
-			setAutoApprovalEnabled(true)
-			vscode.postMessage({ type: "autoApprovalEnabled", bool: true })
-		}
-	}, [onAutoApproveToggle, autoApprovalEnabled, setAutoApprovalEnabled])
+	const settingsArray = Object.values(autoApproveSettingsConfig)
+	const { effectiveAutoApprovalEnabled } = useAutoApprovalState(toggles, autoApprovalEnabled)
+
+	// Calculate enabled and total counts as separate properties
+	const enabledCount = React.useMemo(() => {
+		return Object.values(toggles).filter((value) => !!value).length
+	}, [toggles])
+
+	const totalCount = React.useMemo(() => {
+		return Object.keys(toggles).length
+	}, [toggles])
+
+	const readModeToggles: AutoApproveSetting[] = [
+		"alwaysAllowReadOnly",
+		"alwaysAllowUpdateTodoList",
+		"alwaysApproveResubmit",
+	]
+	const monitorModeToggles: AutoApproveSetting[] = [...readModeToggles, "alwaysAllowExecute"]
+	const reviewModeToggles: AutoApproveSetting[] = [...monitorModeToggles, "alwaysAllowWrite"]
+	const writeModeToggles: AutoApproveSetting[] = [...reviewModeToggles, "alwaysAllowSubtasks"]
+
+	const handleSelectMode = React.useCallback(
+		(togglesToEnable: AutoApproveSetting[]) => {
+			// Set only the specified toggles to true, others to false (except alwaysAllowMcp and alwaysAllowBrowser)
+			Object.keys(autoApproveSettingsConfig).forEach((key) => {
+				if (key === "alwaysAllowMcp" || key === "alwaysAllowBrowser") {
+					return
+				}
+				onAutoApproveToggle(key as AutoApproveSetting, togglesToEnable.includes(key as AutoApproveSetting))
+			})
+		},
+		[onAutoApproveToggle],
+	)
 
 	const handleSelectNone = React.useCallback(() => {
-		// Disable all options
+		// Set all toggles to false (including alwaysAllowMcp and alwaysAllowBrowser)
 		Object.keys(autoApproveSettingsConfig).forEach((key) => {
 			onAutoApproveToggle(key as AutoApproveSetting, false)
 		})
 	}, [onAutoApproveToggle])
+
+	const isModeSelected = React.useCallback(
+		(togglesToCheck: AutoApproveSetting[]) => {
+			return (
+				togglesToCheck.every((key) => toggles[key]) &&
+				Object.keys(toggles).every((key) => {
+					const typedKey = key as AutoApproveSetting
+					if (key === "alwaysAllowMcp" || key === "alwaysAllowBrowser") {
+						return true // Ignore these two toggles for mode checks
+					}
+					if (togglesToCheck.includes(typedKey)) {
+						return toggles[typedKey]
+					}
+					return !toggles[typedKey]
+				})
+			)
+		},
+		[toggles],
+	)
+
+	const isMcpEnabled = React.useMemo(() => toggles.alwaysAllowMcp, [toggles])
+	const isBrowserEnabled = React.useMemo(() => toggles.alwaysAllowBrowser, [toggles])
+	const isOnlyMcpOrBrowserEnabled = React.useMemo(() => {
+		const { alwaysAllowMcp, alwaysAllowBrowser, ...otherToggles } = toggles
+		return (alwaysAllowMcp || alwaysAllowBrowser) && Object.values(otherToggles).every((v) => !v)
+	}, [toggles])
+
+	const modeColor = React.useMemo(() => {
+		if (!autoApprovalEnabled) {
+			return "text-vscode-foreground"
+		} else if (
+			isModeSelected(writeModeToggles) ||
+			isModeSelected(monitorModeToggles) ||
+			isModeSelected(readModeToggles) ||
+			isModeSelected(reviewModeToggles)
+		) {
+			return "text-[var(--vscode-icon-foreground)]"
+		} else if (enabledCount === totalCount) {
+			return "text-[var(--vscode-activityWarningBadge-background)]" // All mode color
+		} else if (enabledCount > 0) {
+			return "text-[var(--vscode-textLink-foreground)]" // Custom mode color
+		}
+		return "text-vscode-errorForeground"
+	}, [toggles, enabledCount, totalCount, autoApprovalEnabled])
+
+	const modeText = React.useMemo(() => {
+		var mode = ""
+
+		if (!autoApprovalEnabled) {
+			return t("chat:autoApprove.triggerLabelOff")
+		}
+
+		if (isModeSelected(writeModeToggles)) {
+			mode = "Pretzeled"
+		} else if (isModeSelected(reviewModeToggles)) {
+			mode = "Review"
+		} else if (isModeSelected(monitorModeToggles)) {
+			mode = "Monitor"
+		} else if (isModeSelected(readModeToggles)) {
+			mode = "Read"
+		} else if (enabledCount > 0 && !isOnlyMcpOrBrowserEnabled) {
+			mode = "Custom"
+		} else if (enabledCount === totalCount) {
+			mode = t("chat:autoApprove.triggerLabelAll")
+		} else if (enabledCount === 0) {
+			mode = "None"
+		}
+
+		if ((isMcpEnabled || isBrowserEnabled) && !isOnlyMcpOrBrowserEnabled) {
+			mode += " + "
+		}
+
+		if (isMcpEnabled && isBrowserEnabled) {
+			mode += "MCP & Browser"
+		} else if (isMcpEnabled) {
+			mode += "MCP"
+		} else if (isBrowserEnabled) {
+			mode += "Browser"
+		}
+
+		return mode
+	}, [toggles, enabledCount, totalCount, autoApprovalEnabled])
+
+	const modeIcon = React.useMemo(() => {
+		const lucideClass = cn("size-3 flex-shrink-0")
+
+		if (!autoApprovalEnabled) {
+			return <X className={lucideClass} />
+		}
+
+		if (isModeSelected(writeModeToggles)) {
+			return "🥨"
+		} else if (isModeSelected(reviewModeToggles)) {
+			return <MessageSquareCode className={lucideClass} />
+		} else if (isModeSelected(monitorModeToggles)) {
+			return <FileDiff className={lucideClass} />
+		} else if (isModeSelected(readModeToggles)) {
+			return <BookOpenText className={lucideClass} />
+		} else if (enabledCount === totalCount) {
+			return <LayoutList className={lucideClass} />
+		} else if (isOnlyMcpOrBrowserEnabled && isBrowserEnabled && !isMcpEnabled) {
+			return <Globe className={lucideClass} />
+		} else if (isOnlyMcpOrBrowserEnabled && isMcpEnabled && !isBrowserEnabled) {
+			return <Server className={lucideClass} />
+		} else if (enabledCount > 0) {
+			return <ListTodo className={lucideClass} />
+		} else {
+			return <LayoutList className={lucideClass} />
+		}
+	}, [toggles, enabledCount, totalCount, autoApprovalEnabled])
 
 	const handleOpenSettings = React.useCallback(
 		() =>
@@ -145,19 +281,6 @@ export const AutoApproveDropdown = ({ disabled = false, triggerClassName = "" }:
 		setAutoApprovalEnabled(newValue)
 		vscode.postMessage({ type: "autoApprovalEnabled", bool: newValue })
 	}, [autoApprovalEnabled, setAutoApprovalEnabled])
-
-	// Calculate enabled and total counts as separate properties
-	const settingsArray = Object.values(autoApproveSettingsConfig)
-
-	const enabledCount = React.useMemo(() => {
-		return Object.values(toggles).filter((value) => !!value).length
-	}, [toggles])
-
-	const totalCount = React.useMemo(() => {
-		return Object.keys(toggles).length
-	}, [toggles])
-
-	const { effectiveAutoApprovalEnabled } = useAutoApprovalState(toggles, autoApprovalEnabled)
 
 	const tooltipText =
 		!effectiveAutoApprovalEnabled || enabledCount === 0
@@ -176,7 +299,7 @@ export const AutoApproveDropdown = ({ disabled = false, triggerClassName = "" }:
 					disabled={disabled}
 					data-testid="auto-approve-dropdown-trigger"
 					className={cn(
-						"inline-flex items-center gap-1.5 relative whitespace-nowrap px-1.5 py-1 text-xs",
+						"inline-flex gap-1.5 relative whitespace-nowrap px-1.5 py-1 text-xs",
 						"bg-transparent border border-[rgba(255,255,255,0.08)] rounded-md text-vscode-foreground",
 						"transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-vscode-focusBorder focus-visible:ring-inset",
 						"max-[300px]:shrink-0",
@@ -185,26 +308,10 @@ export const AutoApproveDropdown = ({ disabled = false, triggerClassName = "" }:
 							: "opacity-90 hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)] cursor-pointer",
 						triggerClassName,
 					)}>
-					{!effectiveAutoApprovalEnabled ? (
-						<X className="size-3 flex-shrink-0" />
-					) : (
-						<CheckCheck className="size-3 flex-shrink-0" />
-					)}
-
-					<span className="hidden min-[300px]:inline truncate min-w-0">
-						{!effectiveAutoApprovalEnabled
-							? t("chat:autoApprove.triggerLabelOff")
-							: enabledCount === totalCount
-								? t("chat:autoApprove.triggerLabelAll")
-								: t("chat:autoApprove.triggerLabel", { count: enabledCount })}
-					</span>
-					<span className="inline min-[300px]:hidden min-w-0">
-						{!effectiveAutoApprovalEnabled
-							? t("chat:autoApprove.triggerLabelOffShort")
-							: enabledCount === totalCount
-								? t("chat:autoApprove.triggerLabelAll")
-								: enabledCount}
-					</span>
+					<div className={`truncate min-w-0 flex flex-row gap-1 ${modeColor}`}>
+						{modeIcon}
+						<span>{modeText}</span>
+					</div>
 				</PopoverTrigger>
 			</StandardTooltip>
 			<PopoverContent
@@ -240,11 +347,12 @@ export const AutoApproveDropdown = ({ disabled = false, triggerClassName = "" }:
 										className={cn(
 											"flex items-center gap-2 px-2 py-2 text-sm text-left justify-start h-auto",
 											"transition-all duration-150",
-											!effectiveAutoApprovalEnabled &&
-												"opacity-50 cursor-not-allowed hover:opacity-50",
-											!isEnabled && "bg-vscode-button-background/15",
+											"opacity-100 hover:opacity-70",
+											"cursor-pointer",
+											isEnabled
+												? "bg-vscode-button-background text-vscode-button-foreground"
+												: "bg-vscode-button-background/15 text-vscode-foreground hover:bg-vscode-list-hoverBackground",
 										)}
-										disabled={!effectiveAutoApprovalEnabled}
 										data-testid={`auto-approve-${key}`}>
 										<span className={`codicon codicon-${icon} text-sm flex-shrink-0`} />
 										<span className="flex-1 truncate">{t(labelKey)}</span>
@@ -254,37 +362,8 @@ export const AutoApproveDropdown = ({ disabled = false, triggerClassName = "" }:
 						})}
 					</div>
 
-					{/* Bottom bar with Select All/None buttons */}
+					{/* Bottom bar with toggle / toolkit buttons */}
 					<div className="flex flex-row items-center justify-between px-2 py-2 border-t border-vscode-dropdown-border">
-						<div className="flex flex-row gap-1">
-							<Button
-								variant="ghost"
-								size="sm"
-								aria-label={t("chat:autoApprove.selectAll")}
-								onClick={handleSelectAll}
-								disabled={!effectiveAutoApprovalEnabled}
-								className={cn(
-									"gap-1 px-2 py-1 text-base font-bold h-auto",
-									!effectiveAutoApprovalEnabled && "opacity-50 hover:opacity-50 cursor-not-allowed",
-								)}>
-								<ListChecks className="w-3.5 h-3.5" />
-								<span>{t("chat:autoApprove.all")}</span>
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								aria-label={t("chat:autoApprove.selectNone")}
-								onClick={handleSelectNone}
-								disabled={!effectiveAutoApprovalEnabled}
-								className={cn(
-									"gap-1 px-2 py-1 text-base font-bold h-auto",
-									!effectiveAutoApprovalEnabled && "opacity-50 hover:opacity-50 cursor-not-allowed",
-								)}>
-								<LayoutList className="w-3.5 h-3.5" />
-								<span>{t("chat:autoApprove.none")}</span>
-							</Button>
-						</div>
-
 						<label
 							className="flex items-center gap-2 pr-2 cursor-pointer"
 							onClick={(e) => {
@@ -302,6 +381,74 @@ export const AutoApproveDropdown = ({ disabled = false, triggerClassName = "" }:
 							/>
 							<span className={cn("text-sm font-bold select-none")}>Enabled</span>
 						</label>
+
+						<div className="flex flex-row gap-1">
+							<button
+								aria-label="Write Mode"
+								onClick={() => handleSelectMode(writeModeToggles)}
+								className={cn(
+									"relative inline-flex items-center justify-center gap-1",
+									"bg-transparent border-none px-2 py-1",
+									"rounded-md text-base font-bold",
+									"text-vscode-foreground",
+									"transition-all duration-150",
+									"hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)]",
+								)}>
+								<span className="text-xl">🥨</span>
+							</button>
+							<button
+								aria-label="Review Mode"
+								onClick={() => handleSelectMode(reviewModeToggles)}
+								className={cn(
+									"relative inline-flex items-center justify-center gap-1",
+									"bg-transparent border-none px-2 py-1",
+									"rounded-md text-base font-bold",
+									"text-vscode-foreground",
+									"transition-all duration-150",
+									"hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)]",
+								)}>
+								<MessageSquareCode className="w-3.5 h-3.5" />
+							</button>
+							<button
+								aria-label="Monitor Mode"
+								onClick={() => handleSelectMode(monitorModeToggles)}
+								className={cn(
+									"relative inline-flex items-center justify-center gap-1",
+									"bg-transparent border-none px-2 py-1",
+									"rounded-md text-base font-bold",
+									"text-vscode-foreground",
+									"transition-all duration-150",
+									"hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)]",
+								)}>
+								<FileDiff className="w-3.5 h-3.5" />
+							</button>
+							<button
+								aria-label="Read Only Mode"
+								onClick={() => handleSelectMode(readModeToggles)}
+								className={cn(
+									"relative inline-flex items-center justify-center gap-1",
+									"bg-transparent border-none px-2 py-1",
+									"rounded-md text-base font-bold",
+									"text-vscode-foreground",
+									"transition-all duration-150",
+									"hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)]",
+								)}>
+								<BookOpenText className="w-3.5 h-3.5" />
+							</button>
+							<button
+								aria-label="Select None"
+								onClick={handleSelectNone}
+								className={cn(
+									"relative inline-flex items-center justify-center gap-1",
+									"bg-transparent border-none px-2 py-1",
+									"rounded-md text-base font-bold",
+									"text-vscode-foreground",
+									"transition-all duration-150",
+									"hover:opacity-100 hover:bg-[rgba(255,255,255,0.03)]",
+								)}>
+								<LayoutList className="w-3.5 h-3.5" />
+							</button>
+						</div>
 					</div>
 				</div>
 			</PopoverContent>
