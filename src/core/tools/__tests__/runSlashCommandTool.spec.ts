@@ -4,11 +4,16 @@ import { Task } from "../../task/Task"
 import { formatResponse } from "../../prompts/responses"
 import { getCommand, getCommandNames } from "../../../services/command/commands"
 import type { ToolUse } from "../../../shared/tools"
+import { parseMentions } from "../../mentions"
 
 // Mock dependencies
 vi.mock("../../../services/command/commands", () => ({
 	getCommand: vi.fn(),
 	getCommandNames: vi.fn(),
+}))
+
+vi.mock("../../mentions", () => ({
+	parseMentions: vi.fn(),
 }))
 
 describe("runSlashCommandTool", () => {
@@ -24,6 +29,9 @@ describe("runSlashCommandTool", () => {
 			sayAndCreateMissingParamError: vi.fn().mockResolvedValue("Missing parameter error"),
 			ask: vi.fn().mockResolvedValue({}),
 			cwd: "/test/project",
+			urlContentFetcher: {},
+			fileContextTracker: {},
+			rooIgnoreController: {},
 			providerRef: {
 				deref: vi.fn().mockReturnValue({
 					getState: vi.fn().mockResolvedValue({
@@ -41,6 +49,9 @@ describe("runSlashCommandTool", () => {
 			pushToolResult: vi.fn(),
 			removeClosingTag: vi.fn((tag, text) => text || ""),
 		}
+
+		// Default mock for parseMentions - returns content unchanged
+		vi.mocked(parseMentions).mockImplementation(async (content) => content)
 	})
 
 	it("should handle missing command parameter", async () => {
@@ -306,5 +317,113 @@ Deploy application to production`,
 		await runSlashCommandTool.handle(mockTask as Task, block, mockCallbacks)
 
 		expect(mockTask.consecutiveMistakeCount).toBe(0)
+	})
+
+	it("should process file mentions in command content", async () => {
+		const block = {
+			type: "tool_use" as const,
+			name: "run_slash_command" as const,
+			params: {
+				command: "review",
+			},
+			partial: false,
+		}
+
+		const mockCommand = {
+			name: "review",
+			content: "Please review the code in @/src/utils/helper.ts and provide feedback.",
+			source: "project" as const,
+			filePath: ".roo/commands/review.md",
+			description: "Review code files",
+		}
+
+		vi.mocked(getCommand).mockResolvedValue(mockCommand)
+		vi.mocked(parseMentions).mockResolvedValue(
+			`Please review the code in 'src/utils/helper.ts' (see below for file content) and provide feedback.
+
+<file_content path="src/utils/helper.ts">
+export function formatDate(date: Date): string {
+		return date.toISOString();
+}
+</file_content>`,
+		)
+
+		await runSlashCommandTool.handle(mockTask as Task, block, mockCallbacks)
+
+		// Verify parseMentions was called with the command content
+		expect(parseMentions).toHaveBeenCalledWith(
+			mockCommand.content,
+			mockTask.cwd,
+			mockTask.urlContentFetcher,
+			mockTask.fileContextTracker,
+			mockTask.rooIgnoreController,
+			false, // showRooIgnoredFiles
+			true, // includeDiagnosticMessages
+			50, // maxDiagnosticMessages
+			undefined, // maxReadFileLine
+		)
+
+		// Verify the result includes both the processed mention text and the XML block
+		expect(mockCallbacks.pushToolResult).toHaveBeenCalledWith(
+			expect.stringContaining("'src/utils/helper.ts' (see below for file content)"),
+		)
+		expect(mockCallbacks.pushToolResult).toHaveBeenCalledWith(
+			expect.stringContaining('<file_content path="src/utils/helper.ts">'),
+		)
+		expect(mockCallbacks.pushToolResult).toHaveBeenCalledWith(expect.stringContaining("export function formatDate"))
+	})
+
+	it("should process file mentions in command content", async () => {
+		const block = {
+			type: "tool_use" as const,
+			name: "run_slash_command" as const,
+			params: {
+				command: "review",
+			},
+			partial: false,
+		}
+
+		const mockCommand = {
+			name: "review",
+			content: "Please review the code in @/src/utils/helper.ts and provide feedback.",
+			source: "project" as const,
+			filePath: ".roo/commands/review.md",
+			description: "Review code files",
+		}
+
+		vi.mocked(getCommand).mockResolvedValue(mockCommand)
+		vi.mocked(parseMentions).mockResolvedValue(
+			`Please review the code in 'src/utils/helper.ts' (see below for file content) and provide feedback.
+
+<file_content path="src/utils/helper.ts">
+export function formatDate(date: Date): string {
+		return date.toISOString();
+}
+</file_content>`,
+		)
+
+		await runSlashCommandTool.handle(mockTask as Task, block, mockCallbacks)
+
+		// Verify parseMentions was called with the command content
+		expect(parseMentions).toHaveBeenCalledWith(
+			mockCommand.content,
+			mockTask.cwd,
+			mockTask.urlContentFetcher,
+			mockTask.fileContextTracker,
+			mockTask.rooIgnoreController,
+			false, // showRooIgnoredFiles
+			true, // includeDiagnosticMessages
+			50, // maxDiagnosticMessages
+			undefined, // maxReadFileLine
+		)
+
+		// Verify the result includes both the processed mention text and the XML block
+		expect(mockCallbacks.pushToolResult).toHaveBeenCalledWith(
+			expect.stringContaining("'src/utils/helper.ts' (see below for file content)"),
+		)
+		expect(mockCallbacks.pushToolResult).toHaveBeenCalledWith(
+			expect.stringContaining('<file_content path="src/utils/helper.ts">'),
+		)
+		expect(mockCallbacks.pushToolResult).toHaveBeenCalledWith(expect.stringContaining("export function formatDate"))
 	})
 })

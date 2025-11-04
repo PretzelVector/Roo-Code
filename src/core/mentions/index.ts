@@ -81,6 +81,7 @@ export async function parseMentions(
 	includeDiagnosticMessages: boolean = true,
 	maxDiagnosticMessages: number = 50,
 	maxReadFileLine?: number,
+	recursionDepth: number = 0,
 ): Promise<string> {
 	const mentions: Set<string> = new Set()
 	const validCommands: Map<string, Command> = new Map()
@@ -242,7 +243,22 @@ export async function parseMentions(
 			if (command.description) {
 				commandOutput += `Description: ${command.description}\n\n`
 			}
-			commandOutput += command.content
+			if (recursionDepth < 1) {
+				commandOutput += await parseMentions(
+					command.content,
+					cwd,
+					urlContentFetcher,
+					fileContextTracker,
+					rooIgnoreController,
+					showRooIgnoredFiles,
+					includeDiagnosticMessages,
+					maxDiagnosticMessages,
+					maxReadFileLine,
+					recursionDepth + 1,
+				)
+			} else {
+				commandOutput += command.content
+			}
 			parsedText += `\n\n<command name="${commandName}">\n${commandOutput}\n</command>`
 		} catch (error) {
 			parsedText += `\n\n<command name="${commandName}">\nError loading command '${commandName}': ${error.message}\n</command>`

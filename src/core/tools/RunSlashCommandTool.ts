@@ -4,6 +4,7 @@ import { getCommand, getCommandNames } from "../../services/command/commands"
 import { EXPERIMENT_IDS, experiments } from "../../shared/experiments"
 import { BaseTool, ToolCallbacks } from "./BaseTool"
 import type { ToolUse } from "../../shared/tools"
+import { parseMentions } from "../mentions"
 
 interface RunSlashCommandParams {
 	command: string
@@ -98,7 +99,22 @@ export class RunSlashCommandTool extends BaseTool<"run_slash_command"> {
 			}
 
 			result += `\nSource: ${command.source}`
-			result += `\n\n--- Command Content ---\n\n${command.content}`
+
+			// Process mentions in command content
+			const processedContent = await parseMentions(
+				command.content,
+				task.cwd,
+				task.urlContentFetcher,
+				task.fileContextTracker,
+				task.rooIgnoreController,
+				false, // showRooIgnoredFiles
+				true, // includeDiagnosticMessages
+				50, // maxDiagnosticMessages
+				undefined, // maxReadFileLine
+				1, // recursionDepth
+			)
+
+			result += `\n\n--- Command Content ---\n\n${processedContent}`
 
 			// Return the command content as the tool result
 			pushToolResult(result)
