@@ -46,6 +46,8 @@ import { ChatTextArea } from "./ChatTextArea"
 import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
 import { useSelectedModel } from "../ui/hooks/useSelectedModel"
 import {
+	ChevronRight,
+	ChevronDown,
 	Eye,
 	FileDiff,
 	ListTree,
@@ -321,7 +323,11 @@ export const ChatRowContent = ({
 							getIconSpan("error", errorColor)
 						)
 					) : cost !== null && cost !== undefined ? (
-						getIconSpan("arrow-swap", normalColor)
+						isExpanded ? (
+							<ChevronDown className="w-4 shrink-0" />
+						) : (
+							<ChevronRight className="w-4 shrink-0" />
+						)
 					) : apiRequestFailedMessage ? (
 						getIconSpan("error", errorColor)
 					) : (
@@ -353,7 +359,17 @@ export const ChatRowContent = ({
 			default:
 				return [null, null]
 		}
-	}, [type, isCommandExecuting, message, isMcpServerResponding, apiReqCancelReason, cost, apiRequestFailedMessage, t])
+	}, [
+		type,
+		isCommandExecuting,
+		message,
+		isMcpServerResponding,
+		apiReqCancelReason,
+		cost,
+		apiRequestFailedMessage,
+		t,
+		isExpanded,
+	])
 
 	const headerStyle: React.CSSProperties = {
 		display: "flex",
@@ -1083,7 +1099,13 @@ export const ChatRowContent = ({
 											? 10
 											: 0,
 									justifyContent: "space-between",
-								}}>
+									cursor: "pointer",
+									userSelect: "none",
+									WebkitUserSelect: "none",
+									MozUserSelect: "none",
+									msUserSelect: "none",
+								}}
+								onClick={handleToggleExpand}>
 								<div style={{ display: "flex", alignItems: "center", gap: "10px", flexGrow: 1 }}>
 									{icon}
 									{title}
@@ -1115,6 +1137,17 @@ export const ChatRowContent = ({
 										) : undefined
 									}
 								/>
+							)}
+
+							{isExpanded && (
+								<div className="ml-6" style={{ marginTop: "10px" }}>
+									<CodeAccordian
+										code={safeJsonParse<any>(message.text)?.request}
+										language="markdown"
+										isExpanded={true}
+										onToggleExpand={handleToggleExpand}
+									/>
+								</div>
 							)}
 						</>
 					)
